@@ -15,6 +15,10 @@
 #include <sys/stat.h>
 #include <ctype.h>
 
+#define MIN(a,b) ((a) < (b) ? a : b)
+
+#define MAXCHUNK (1024*1024*1024)
+
 static int VERBOSE = 0;
 static int TIME = 0;
 
@@ -88,15 +92,29 @@ static void bcast(char * src, char * PREFIX) {
         fread(fcontent, 1, fsize, fp);
         fclose(fp);
         MPI_Bcast(&fsize, 1, MPI_LONG, 0, NODE_LEADERS);
-        MPI_Bcast(fcontent, fsize, MPI_BYTE, 0, NODE_LEADERS);
-        if(VERBOSE) {
-            printf("Bcasting %s: %ld bytes\n", src, fsize);
-            fflush(stdout);
-        }
+        
+        long chunkSize = MIN(MAXCHUNK,fsize);
+        long counter = 0;
+        do {
+            MPI_Bcast(fcontent+counter, chunkSize, MPI_BYTE, 0, NODE_LEADERS);
+            if(VERBOSE) {
+               printf("Bcasting %s: %ld bytes\n", src, chunkSize);
+               fflush(stdout);
+            }
+            counter += chunkSize;
+            chunkSize = MIN(chunkSize,fsize-counter);
+        } while(counter < fsize);
     } else {
         MPI_Bcast(&fsize, 1, MPI_LONG, 0, NODE_LEADERS);
         fcontent = malloc(fsize + 1);
-        MPI_Bcast(fcontent, fsize, MPI_BYTE, 0, NODE_LEADERS);
+        long chunkSize = MIN(MAXCHUNK,fsize);
+        long counter = 0;
+        do {
+
+            MPI_Bcast(fcontent+counter, chunkSize, MPI_BYTE, 0, NODE_LEADERS);
+            counter += chunkSize;
+            chunkSize = MIN(chunkSize,fsize-counter);
+        } while(counter < fsize);
     }
     
     MPI_Barrier(NODE_LEADERS);
