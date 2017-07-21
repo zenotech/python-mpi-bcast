@@ -1,4 +1,4 @@
-CC=mpicc
+CC=cc
 CCDYNAMIC=$(CC) -dynamic
 LDSHARED=$(CC) -shared
 
